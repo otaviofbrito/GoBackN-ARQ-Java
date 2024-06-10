@@ -1,4 +1,5 @@
 package com.redes;
+
 import java.util.concurrent.Semaphore;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -8,9 +9,12 @@ public class Main {
         RecebeDados rd = new RecebeDados();
         rd.start();
 
-        Semaphore sem = new Semaphore(1);
+        int window_size = 1;
+        Semaphore sem = new Semaphore(window_size);
         EnviaDados ed1 = new EnviaDados(sem, "envia");
         EnviaDados ed2 = new EnviaDados(sem, "ack");
+
+
 
         ed2.start();
         ed1.start();
