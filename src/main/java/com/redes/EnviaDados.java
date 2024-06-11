@@ -119,24 +119,24 @@ public class EnviaDados extends Thread {
                 // int's por vez.
                 int cont = 1; // PCKT = [NSEQ, DADO, DADO, DADO]
                 try (FileInputStream fileInput = new FileInputStream("entrada");) {
-                    int lido = fileInput.read();
+                    int lido;
                     while ((lido = fileInput.read()) != -1) {
+                        dados[0] = nextSeqNum; // Adiciona numero de sequencia ao inicio do pacote
                         dados[cont] = lido;
                         cont++;
-
+                        
                         if (cont == 350) {
-
+                            
                             sem.acquire();
                             // envia pacotes a cada 350 int's lidos.
                             // ou seja, 1400 Bytes.
-                            dados[0] = nextSeqNum; // Adiciona numero de sequencia ao inicio do pacote
                             sendBuffer.put(nextSeqNum, dados.clone());
                             enviaPct(dados);
                             nextSeqNum++;
                             cont = 1;
                             System.out.println("ENVIAR" + sendBase);
                         }
-
+                        
                     }
 
                     // ultimo pacote eh preenchido com
@@ -146,7 +146,7 @@ public class EnviaDados extends Thread {
                     for (int i = cont; i < 350; i++) {
                         dados[i] = -1;
                     }
-                    dados[0] = nextSeqNum; // Adiciona numero de sequencia ao ultimo pacote
+                    //dados[0] = nextSeqNum; // Adiciona numero de sequencia ao ultimo pacote
                     sem.acquire();
                     sendBuffer.put(nextSeqNum, dados.clone());
                     enviaPct(dados);
