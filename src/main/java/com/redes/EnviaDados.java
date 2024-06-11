@@ -36,10 +36,10 @@ public class EnviaDados extends Thread {
     private final String funcao;
 
     private final int WINDOWSIZE;
-    private ConcurrentHashMap<Integer, int[]> sendBuffer = new ConcurrentHashMap<>(); // avoid race condition
+    private static ConcurrentHashMap<Integer, int[]> sendBuffer = new ConcurrentHashMap<>(); // avoid race condition
     private static int sendBase = 0;
     private static int nextSeqNum = 0;
-    private final long TIMEOUT = 10;
+    private final long TIMEOUT = 40;
     private static Timer timer;
 
     public EnviaDados(Semaphore sem, String funcao) {
@@ -62,9 +62,11 @@ public class EnviaDados extends Thread {
         byte[] buffer = byteBuffer.array();
 
         try {
-
+            if (timer == null) {
+                startTimer();
+            }
             // System.out.println("Semaforo: " + sem.availablePermits());
-            sem.acquire();
+
             // System.out.println("Semaforo: " + sem.availablePermits());
 
             InetAddress address = InetAddress.getByName("localhost");
@@ -77,7 +79,7 @@ public class EnviaDados extends Thread {
             }
         } catch (SocketException ex) {
             Logger.getLogger(EnviaDados.class.getName()).log(Level.SEVERE, null, ex);
-        } catch (IOException | InterruptedException ex) {
+        } catch (IOException ex) {
             Logger.getLogger(EnviaDados.class.getName()).log(Level.SEVERE, null, ex);
         }
     }
@@ -90,10 +92,11 @@ public class EnviaDados extends Thread {
             public void run() {
                 startTimer();
                 System.out.println("Timeout ocorreu, reenviando pacotes a partir do: " + sendBase);
-                for (int key = sendBase; key < sendBuffer.size(); key++) {
+                System.out.println(sendBuffer.size() + "/" + sendBase);
+                for (int key = sendBase; key < nextSeqNum; key++) {
                     enviaPct(sendBuffer.get(key));
                 }
-                sem.release(WINDOWSIZE);
+                // sem.release();
             }
         }, TIMEOUT);
     }
@@ -109,7 +112,6 @@ public class EnviaDados extends Thread {
     public void run() {
         switch (getFuncao()) {
             case "envia":
-                startTimer();
                 // variavel onde os dados lidos serao gravados
                 int[] dados = new int[350];
                 // contador, para gerar pacotes com 1400 Bytes de tamanho
@@ -124,17 +126,15 @@ public class EnviaDados extends Thread {
 
                         if (cont == 350) {
 
+                            sem.acquire();
                             // envia pacotes a cada 350 int's lidos.
                             // ou seja, 1400 Bytes.
                             dados[0] = nextSeqNum; // Adiciona numero de sequencia ao inicio do pacote
-
-                            enviaPct(dados);
                             sendBuffer.put(nextSeqNum, dados.clone());
+                            enviaPct(dados);
                             nextSeqNum++;
                             cont = 1;
-                            while (nextSeqNum >= sendBase + WINDOWSIZE) {
-                                //System.out.println(nextSeqNum);
-                            }
+                            System.out.println("ENVIAR" + sendBase);
                         }
 
                     }
@@ -147,9 +147,12 @@ public class EnviaDados extends Thread {
                         dados[i] = -1;
                     }
                     dados[0] = nextSeqNum; // Adiciona numero de sequencia ao ultimo pacote
+                    sem.acquire();
+                    sendBuffer.put(nextSeqNum, dados.clone());
                     enviaPct(dados);
+                    nextSeqNum++;
 
-                } catch (IOException e) {
+                } catch (IOException | InterruptedException e) {
                     System.out.println("Error message: " + e.getMessage());
                 }
                 break;
@@ -165,6 +168,7 @@ public class EnviaDados extends Thread {
                         retorno = ((tmp[0] & 0xff) << 24) + ((tmp[1] & 0xff) << 16) + ((tmp[2] & 0xff) << 8)
                                 + ((tmp[3] & 0xff));
                         sendBase = retorno + 1; // CUMULATIVE ACK'S
+                        System.out.println("receber" + sendBase);
                         sendBuffer.remove(retorno);
                         System.out.println("[S]:ACK " + retorno + " Recebido");
                         if (sendBase == nextSeqNum) {
@@ -177,6 +181,7 @@ public class EnviaDados extends Thread {
                         }
 
                     }
+                    stopTimer();
                 } catch (IOException e) {
                     System.out.println("Excecao: " + e.getMessage());
                 }

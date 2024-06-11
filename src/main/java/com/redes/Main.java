@@ -14,8 +14,6 @@ public class Main {
         EnviaDados ed1 = new EnviaDados(sem, "envia");
         EnviaDados ed2 = new EnviaDados(sem, "ack");
 
-
-
         ed2.start();
         ed1.start();
 
