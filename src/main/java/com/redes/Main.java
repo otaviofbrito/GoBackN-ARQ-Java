@@ -9,7 +9,7 @@ public class Main {
         RecebeDados rd = new RecebeDados();
         rd.start();
 
-        int window_size = 1;
+        int window_size = 4;
         Semaphore sem = new Semaphore(window_size);
         EnviaDados ed1 = new EnviaDados(sem, "envia");
         EnviaDados ed2 = new EnviaDados(sem, "ack");

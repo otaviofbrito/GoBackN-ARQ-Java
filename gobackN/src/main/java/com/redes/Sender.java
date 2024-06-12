@@ -22,31 +22,27 @@ import java.util.logging.Logger;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.Semaphore;
-import java.util.concurrent.TimeUnit;
 
-public class EnviaDados extends Thread {
+public class Sender extends Thread {
 
     private final int portaLocalEnvio = 2000;
     private final int portaDestino = 2001;
     private final int portaLocalRecebimento = 2003;
+    private static String addr = "localhost";
     Semaphore sem;
     private final String funcao;
 
-    private final int WINDOWSIZE;
     private static ConcurrentHashMap<Integer, int[]> sendBuffer = new ConcurrentHashMap<>(); // avoid race condition
     private static int sendBase = 0;
     private static int nextSeqNum = 0;
-    private final long TIMEOUT = 40;
+    private static long timeout = 100;;
     private static Timer timer;
 
-    public EnviaDados(Semaphore sem, String funcao) {
+    public Sender(Semaphore sem, String funcao) {
         super(funcao);
         this.sem = sem;
         this.funcao = funcao;
-        this.WINDOWSIZE = sem.availablePermits();
     }
 
     public String getFuncao() {
@@ -69,7 +65,7 @@ public class EnviaDados extends Thread {
 
             // System.out.println("Semaforo: " + sem.availablePermits());
 
-            InetAddress address = InetAddress.getByName("localhost");
+            InetAddress address = InetAddress.getByName(addr);
             try (DatagramSocket datagramSocket = new DatagramSocket(portaLocalEnvio)) {
                 DatagramPacket packet = new DatagramPacket(
                         buffer, buffer.length, address, portaDestino);
@@ -78,9 +74,9 @@ public class EnviaDados extends Thread {
                 datagramSocket.send(packet);
             }
         } catch (SocketException ex) {
-            Logger.getLogger(EnviaDados.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(Sender.class.getName()).log(Level.SEVERE, null, ex);
         } catch (IOException ex) {
-            Logger.getLogger(EnviaDados.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(Sender.class.getName()).log(Level.SEVERE, null, ex);
         }
     }
 
@@ -91,14 +87,14 @@ public class EnviaDados extends Thread {
             @Override
             public void run() {
                 startTimer();
-                System.out.println("Timeout ocorreu, reenviando pacotes a partir do: " + sendBase);
+                System.out.println("timeout ocorreu, reenviando pacotes a partir do: " + sendBase);
                 System.out.println(sendBuffer.size() + "/" + sendBase);
                 for (int key = sendBase; key < nextSeqNum; key++) {
                     enviaPct(sendBuffer.get(key));
                 }
                 // sem.release();
             }
-        }, TIMEOUT);
+        }, timeout);
     }
 
     private void stopTimer() {
@@ -157,8 +153,8 @@ public class EnviaDados extends Thread {
                 }
                 break;
             case "ack":
-                try {
-                    DatagramSocket serverSocket = new DatagramSocket(portaLocalRecebimento);
+                try (DatagramSocket serverSocket = new DatagramSocket(portaLocalRecebimento);) {
+
                     byte[] receiveData = new byte[4];
                     int retorno = 0;
                     while (retorno != -2) {
@@ -174,7 +170,7 @@ public class EnviaDados extends Thread {
                         if (sendBase == nextSeqNum) {
                             stopTimer();
                             System.out.println("Timer parado");
-                            sendBuffer.clear(); // Remove pacote do buffer TODO LIMPAR BUFFER
+                            sendBuffer.clear();
                             sem.release();
                         } else {
                             startTimer();
@@ -190,5 +186,31 @@ public class EnviaDados extends Thread {
                 break;
         }
 
+    }
+
+    public static void main(String[] args) {
+        // Usage: java Sender <dest. ip> <window size> <timeout>
+        int window_size = 1;
+        if (args.length != 0) {
+            Sender.addr = args[0];
+            window_size = Integer.parseInt(args[1]);
+            Sender.timeout = Long.parseLong(args[2]);
+        }
+
+        System.out.println("Iniciando transmissão de dados:");
+        Semaphore sem = new Semaphore(window_size);
+        Sender ed1 = new Sender(sem, "envia");
+        Sender ed2 = new Sender(sem, "ack");
+
+        ed2.start();
+        ed1.start();
+
+        try {
+            ed1.join();
+            ed2.join();
+
+        } catch (InterruptedException ex) {
+            Logger.getLogger(Sender.class.getName()).log(Level.SEVERE, null, ex);
+        }
     }
 }
