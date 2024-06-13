@@ -5,7 +5,7 @@ FROM openjdk:17-jdk-slim
 WORKDIR /app
 
 # Copie o código fonte para o diretório de trabalho
-COPY src/ ./src
+COPY . .
 
 RUN javac -d ./class src/main/java/com/redes/*.java
 

@@ -142,7 +142,6 @@ public class Sender extends Thread {
                     for (int i = cont; i < 350; i++) {
                         dados[i] = -1;
                     }
-                    // dados[0] = nextSeqNum; // Adiciona numero de sequencia ao ultimo pacote
                     sem.acquire();
                     sendBuffer.put(nextSeqNum, dados.clone());
                     enviaPct(dados);
@@ -164,12 +163,11 @@ public class Sender extends Thread {
                         retorno = ((tmp[0] & 0xff) << 24) + ((tmp[1] & 0xff) << 16) + ((tmp[2] & 0xff) << 8)
                                 + ((tmp[3] & 0xff));
                         sendBase = retorno + 1; // CUMULATIVE ACK'S
-                        System.out.println("receber" + sendBase);
                         sendBuffer.remove(retorno);
-                        System.out.println("[S]:ACK " + retorno + " Recebido");
+                        System.out.println("[S]:ACK " + retorno + " Recebido.");
                         if (sendBase == nextSeqNum) {
                             stopTimer();
-                            System.out.println("Timer parado");
+                            // System.out.println("Timer parado");
                             sendBuffer.clear();
                             sem.release();
                         } else {
@@ -197,7 +195,8 @@ public class Sender extends Thread {
             Sender.timeout = Long.parseLong(args[2]);
         }
 
-        System.out.println("Iniciando transmissão de dados:");
+        System.out.println("Iniciando transmissão de dados para [" + Sender.addr + "]\nJanela: " + window_size
+                + "\nTimeout: " + Sender.timeout + "ms");
         Semaphore sem = new Semaphore(window_size);
         Sender ed1 = new Sender(sem, "envia");
         Sender ed2 = new Sender(sem, "ack");

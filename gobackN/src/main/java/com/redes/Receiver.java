@@ -113,7 +113,7 @@ public class Receiver extends Thread {
             Receiver.addr = args[0];
         }
         Receiver rd = new Receiver();
-        System.out.println("Receiver iniciado \n Aguardando recebimento de dados...");
+        System.out.println("Receiver iniciado \n Aguardando receber dados de [" + Receiver.addr + "] ...");
         rd.start();
         try {
             rd.join();
