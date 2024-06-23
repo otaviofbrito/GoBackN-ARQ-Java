@@ -1,12 +1,9 @@
-/*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
- */
 package com.redes;
 
 /**
- * @author flavio
+ * @author Flavio
+ * @author Otavio Ferreira
+ * @author Alicia Garnier
  */
 
 import java.io.FileInputStream;
@@ -33,10 +30,13 @@ public class Sender extends Thread {
     Semaphore sem;
     private final String funcao;
 
-    private static ConcurrentHashMap<Integer, int[]> sendBuffer = new ConcurrentHashMap<>(); // avoid race condition
+    // buffer (enviados não confirmados)
+    private static ConcurrentHashMap<Integer, byte[]> sendBuffer = new ConcurrentHashMap<>();
+
+    private static int WINDOW_SIZE = 1;
     private static int sendBase = 0;
     private static int nextSeqNum = 0;
-    private static long timeout = 100;;
+    private static long timeout = 100;
     private static Timer timer;
 
     public Sender(Semaphore sem, String funcao) {
@@ -49,29 +49,22 @@ public class Sender extends Thread {
         return funcao;
     }
 
-    private void enviaPct(int[] dados) {
-        // converte int[] para byte[]
-        ByteBuffer byteBuffer = ByteBuffer.allocate(dados.length * 4);
-        IntBuffer intBuffer = byteBuffer.asIntBuffer();
-        intBuffer.put(dados);
-
-        byte[] buffer = byteBuffer.array();
-
+    /**
+     * Cria pacote UDP e envia para o destino.
+     * (portaLocalEnvio, IP origem) -> (portaDestino, IP destino).
+     * 
+     * @param buffer byte array contendo os dados do pacote
+     */
+    private void enviaPct(byte[] buffer) {
+        int pcktNum = ((buffer[0] & 0xff) << 24) + ((buffer[1] & 0xff) << 16) + ((buffer[2] & 0xff) << 8)
+                + ((buffer[3] & 0xff));
         try {
-            if (timer == null) {
-                startTimer();
-            }
-            // System.out.println("Semaforo: " + sem.availablePermits());
-
-            // System.out.println("Semaforo: " + sem.availablePermits());
-
             InetAddress address = InetAddress.getByName(addr);
             try (DatagramSocket datagramSocket = new DatagramSocket(portaLocalEnvio)) {
                 DatagramPacket packet = new DatagramPacket(
                         buffer, buffer.length, address, portaDestino);
-
-                System.out.println("[S]:PCK " + dados[0] + " Enviado.");
                 datagramSocket.send(packet);
+                System.out.println("[S]:PCK " + pcktNum + " Enviado.");
             }
         } catch (SocketException ex) {
             Logger.getLogger(Sender.class.getName()).log(Level.SEVERE, null, ex);
@@ -80,19 +73,45 @@ public class Sender extends Thread {
         }
     }
 
+    private void criaPacote(int[] dados) {
+        try {
+            sem.acquire();// Para aqui enquanto a janela deslizante não se mover
+
+            // converte int[] para byte[]
+            ByteBuffer byteBuffer = ByteBuffer.allocate(dados.length * 4);
+            IntBuffer intBuffer = byteBuffer.asIntBuffer();
+            intBuffer.put(dados);
+            byte[] buffer = byteBuffer.array();
+
+            sendBuffer.put(nextSeqNum, buffer.clone()); // Adiciona pacote ao buffer.
+            // Inicia timer para sendBase se não houver.
+            if (timer == null)
+                startTimer();
+            enviaPct(buffer);
+            nextSeqNum++;
+        } catch (InterruptedException e) {
+            Logger.getLogger(Sender.class.getName()).log(Level.SEVERE, null, e);
+        }
+
+    }
+
+    /*
+     * Inicia timer para sendBase
+     * TimerTask: Reenvia pacotes da janela de envio(buffer)
+     */
     private void startTimer() {
-        stopTimer(); // Parar qualquer timer existente antes de iniciar um novo
+        stopTimer();
         timer = new Timer();
         timer.schedule(new TimerTask() {
             @Override
             public void run() {
+                // Timeout
                 startTimer();
-                System.out.println("timeout ocorreu, reenviando pacotes a partir do: " + sendBase);
-                System.out.println(sendBuffer.size() + "/" + sendBase);
+                System.out.println("\nTimeout! Reenviando pacotes a partir do: " + sendBase);
                 for (int key = sendBase; key < nextSeqNum; key++) {
                     enviaPct(sendBuffer.get(key));
                 }
-                // sem.release();
+                System.out.println();
             }
         }, timeout);
     }
@@ -113,41 +132,33 @@ public class Sender extends Thread {
                 // contador, para gerar pacotes com 1400 Bytes de tamanho
                 // como cada int ocupa 4 Bytes, estamos lendo blocos com 350
                 // int's por vez.
-                int cont = 1; // PCKT = [NSEQ, DADO, DADO, DADO]
+
+                // Reserva o primeiro byte para o número de sequência.
+                int cont = 1; // PCKT = [Nmro. de Seq., DADO, DADO, DADO,...,-1]
                 try (FileInputStream fileInput = new FileInputStream("entrada");) {
                     int lido;
                     while ((lido = fileInput.read()) != -1) {
-                        dados[0] = nextSeqNum; // Adiciona numero de sequencia ao inicio do pacote
+                        dados[0] = nextSeqNum; // Adiciona número de sequência ao inicio do pacote.
                         dados[cont] = lido;
                         cont++;
 
+                        // envia pacotes a cada 350 int's lidos.
+                        // ou seja, 1400 Bytes.
                         if (cont == 350) {
-
-                            sem.acquire();
-                            // envia pacotes a cada 350 int's lidos.
-                            // ou seja, 1400 Bytes.
-                            sendBuffer.put(nextSeqNum, dados.clone());
-                            enviaPct(dados);
-                            nextSeqNum++;
+                            criaPacote(dados);
                             cont = 1;
-                            System.out.println("ENVIAR" + sendBase);
                         }
-
                     }
 
                     // ultimo pacote eh preenchido com
                     // -1 ate o fim, indicando que acabou
                     // o envio dos dados.
-
                     for (int i = cont; i < 350; i++) {
                         dados[i] = -1;
                     }
-                    sem.acquire();
-                    sendBuffer.put(nextSeqNum, dados.clone());
-                    enviaPct(dados);
-                    nextSeqNum++;
+                    criaPacote(dados);
 
-                } catch (IOException | InterruptedException e) {
+                } catch (IOException e) {
                     System.out.println("Error message: " + e.getMessage());
                 }
                 break;
@@ -162,12 +173,11 @@ public class Sender extends Thread {
                         byte[] tmp = receivePacket.getData();
                         retorno = ((tmp[0] & 0xff) << 24) + ((tmp[1] & 0xff) << 16) + ((tmp[2] & 0xff) << 8)
                                 + ((tmp[3] & 0xff));
-                        sendBase = retorno + 1; // CUMULATIVE ACK'S
+                        sendBase = retorno + 1; // ACK acumulativo
                         sendBuffer.remove(retorno);
                         System.out.println("[S]:ACK " + retorno + " Recebido.");
                         if (sendBase == nextSeqNum) {
                             stopTimer();
-                            // System.out.println("Timer parado");
                             sendBuffer.clear();
                             sem.release();
                         } else {
@@ -188,16 +198,15 @@ public class Sender extends Thread {
 
     public static void main(String[] args) {
         // Usage: java Sender <dest. ip> <window size> <timeout>
-        int window_size = 1;
+        
         if (args.length != 0) {
             Sender.addr = args[0];
-            window_size = Integer.parseInt(args[1]);
+            Sender.WINDOW_SIZE = Integer.parseInt(args[1]);
             Sender.timeout = Long.parseLong(args[2]);
         }
-
-        System.out.println("Iniciando transmissão de dados para [" + Sender.addr + "]\nJanela: " + window_size
-                + "\nTimeout: " + Sender.timeout + "ms");
-        Semaphore sem = new Semaphore(window_size);
+        System.out.println(">Iniciando transmissão de dados para [" + Sender.addr + "]\n>Janela: " + Sender.WINDOW_SIZE
+                + "\n>Timeout: " + Sender.timeout + "ms\n");
+        Semaphore sem = new Semaphore(Sender.WINDOW_SIZE);
         Sender ed1 = new Sender(sem, "envia");
         Sender ed2 = new Sender(sem, "ack");
 
