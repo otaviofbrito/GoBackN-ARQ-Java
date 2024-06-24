@@ -84,11 +84,11 @@ public class Sender extends Thread {
             byte[] buffer = byteBuffer.array();
 
             sendBuffer.put(nextSeqNum, buffer.clone()); // Adiciona pacote ao buffer.
+            nextSeqNum++;
             // Inicia timer para sendBase se não houver.
             if (timer == null)
                 startTimer();
             enviaPct(buffer);
-            nextSeqNum++;
         } catch (InterruptedException e) {
             Logger.getLogger(Sender.class.getName()).log(Level.SEVERE, null, e);
         }
@@ -149,7 +149,6 @@ public class Sender extends Thread {
                             cont = 1;
                         }
                     }
-
                     // ultimo pacote eh preenchido com
                     // -1 ate o fim, indicando que acabou
                     // o envio dos dados.
