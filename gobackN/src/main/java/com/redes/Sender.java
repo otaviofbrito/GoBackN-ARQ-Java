@@ -133,7 +133,7 @@ public class Sender extends Thread {
                 // como cada int ocupa 4 Bytes, estamos lendo blocos com 350
                 // int's por vez.
 
-                // Reserva o primeiro byte para o número de sequência.
+                // Reserva a primeira posição para o número de sequência.
                 int cont = 1; // PCKT = [Nmro. de Seq., DADO, DADO, DADO,...,-1]
                 try (FileInputStream fileInput = new FileInputStream("entrada");) {
                     int lido;
