@@ -1,0 +1,9 @@
+version: '3.3'
+services:
+  sender:
+    build: .
+  receiver:
+    build: .
+#docker compose command will create a default network and 2 containers with both sender and receiver classes
+#You can run [docker exec -ti <container_id> bash] to simulate 2 machines
+#tip: run [docker network ls] and [docker network inspect <network_id>] to get container's IP
