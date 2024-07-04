@@ -4,7 +4,7 @@
 
 This implementation makes use of multi-threading to control the pipelined behavior.
 
-![Go-Back-N ARQ Port Diagram](./GBN_Diagram.png)
+![Go-Back-N ARQ Port Diagram](./img/GBN_Diagram.png)
 
 ## Receiver
 
@@ -54,7 +54,7 @@ There are two **threads** for the sender, "send" and "ack". The first takes care
 
 Every timeout, a TimerTask is triggered to resend all packets in the send buffer.
 
-![Go-Back-N ARQ Port Diagram](./PortDiagram.png)
+![Go-Back-N ARQ Port Diagram](./img/PortDiagram.png)
 
 ## Usage
 
