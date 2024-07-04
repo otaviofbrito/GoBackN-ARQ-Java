@@ -1,6 +1,6 @@
 # Go-Back-N ARQ - Java Implementation
 
-**Go-Back-N** is a sliding window and pipelined protocol that allows the sender to send multiple packets without waiting for the receiver's acknowledgements.
+**Go-Back-N** is a sliding window and pipelined networking protocol that allows the sender to send multiple packets without waiting for the receiver's acknowledgements.
 
 This implementation makes use of multi-threading to control the pipelined behavior.
 
