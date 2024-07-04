@@ -115,7 +115,7 @@ public class Receiver extends Thread {
     }
 
     public static void main(String[] args) {
-        // Usage: java Receiver <destination IP address>
+        // Usage: java com.protocol.Receiver <destination IP address>
         if (args.length != 0) {
             Receiver.addr = args[0];
         }

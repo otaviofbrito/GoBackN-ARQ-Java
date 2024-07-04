@@ -200,7 +200,7 @@ public class Sender extends Thread {
     }
 
     public static void main(String[] args) {
-        // Usage: java Sender <dest. ip> <window size> <timeout>
+        // Usage: java com.protocol.Sender <dest. ip> <window size> <timeout>
 
         if (args.length != 0) {
             Sender.addr = args[0];
