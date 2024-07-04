@@ -1,4 +1,4 @@
-package com.redes;
+package com.protocol;
 
 /**
  * @author Flavio
@@ -140,7 +140,7 @@ public class Sender extends Thread {
                 // Reserve the first position for the sequence number.
                 // Since each int occupies 4 bytes, we are reading blocks of 350 ints at a time.
 
-                try (FileInputStream fileInput = new FileInputStream("input");) {
+                try (FileInputStream fileInput = new FileInputStream("input.jpg");) {
                     int lido;
                     while ((lido = fileInput.read()) != -1) {
                         data[0] = nextSeqNum; // Add sequence number to the beginning of the packet.
@@ -178,7 +178,7 @@ public class Sender extends Thread {
                                 + ((tmp[3] & 0xff));
                         sendBase = recv + 1; // Cumulative ACK's
                         sendBuffer.remove(recv);
-                        System.out.println("[S]:ACK " + recv + " Recebido.");
+                        System.out.println("[S]:ACK " + recv + " Received.");
                         if (sendBase == nextSeqNum) {
                             stopTimer();
                             sendBuffer.clear();

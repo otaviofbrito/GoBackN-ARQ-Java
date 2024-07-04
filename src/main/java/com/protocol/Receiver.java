@@ -1,4 +1,4 @@
-package com.redes;
+package com.protocol;
 
 /**
  * @author Flavio
@@ -55,7 +55,7 @@ public class Receiver extends Thread {
     public void run() {
         try (DatagramSocket serverSocket = new DatagramSocket(localReceivingPort);) {
             byte[] receiveData = new byte[1400];
-            try (FileOutputStream fileOutput = new FileOutputStream("output")) {
+            try (FileOutputStream fileOutput = new FileOutputStream("output.jpg")) {
                 boolean end = false;
                 while (!end) {
 
